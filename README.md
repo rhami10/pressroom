@@ -11,6 +11,9 @@ are, and changes only what it has to, in this order:
 
 Your files never leave your computer.
 
+> Built with [Claude Code](https://claude.com/claude-code). The code is AI-generated; I directed it,
+> tested it on real documents and steered the fixes.
+
 ![Pressroom main window](docs/app-overview.png)
 
 ## Why another PDF compressor?
