@@ -97,5 +97,13 @@ simulated results.
 | `tests/` | Sample PDF generator and engine runner |
 
 Built with [PyMuPDF](https://pymupdf.readthedocs.io/), [Pillow](https://python-pillow.org/),
-[fontTools](https://github.com/fonttools/fonttools) and [pywebview](https://pywebview.flowrl.com/). The bundled UI
-fonts (Chakra Petch, Sora, JetBrains Mono) are under the SIL Open Font License. See `ui/fonts/OFL-*.txt`.
+[fontTools](https://github.com/fonttools/fonttools) and [pywebview](https://pywebview.flowrl.com/).
+
+## Licence
+
+[GNU AGPL-3.0](LICENSE). You're free to use, change and share Pressroom, as long as anything you
+distribute that's based on it is also open source under the same licence. Pressroom is AGPL because
+it builds on PyMuPDF, which is AGPL-licensed.
+
+The bundled UI fonts (Chakra Petch, Sora, JetBrains Mono) are under the SIL Open Font License. See
+`ui/fonts/OFL-*.txt`.
