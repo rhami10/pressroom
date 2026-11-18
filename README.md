@@ -96,6 +96,6 @@ simulated results.
 | `ui/index.html` | The whole interface: real mode in the app, demo mode in a browser |
 | `tests/` | Sample PDF generator and engine runner |
 
-Built with [PyMuPDF](https://pymupdf.readthedocs.io/), [pikepdf](https://pikepdf.readthedocs.io/),
-[Pillow](https://python-pillow.org/) and [pywebview](https://pywebview.flowrl.com/). The bundled UI
+Built with [PyMuPDF](https://pymupdf.readthedocs.io/), [Pillow](https://python-pillow.org/),
+[fontTools](https://github.com/fonttools/fonttools) and [pywebview](https://pywebview.flowrl.com/). The bundled UI
 fonts (Chakra Petch, Sora, JetBrains Mono) are under the SIL Open Font License. See `ui/fonts/OFL-*.txt`.

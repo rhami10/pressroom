@@ -39,10 +39,11 @@ existing file and only replaces image streams.
 4. **Search for the best quality that fits.** Binary-search a single quality dial (dpi + JPEG
    quality together) for the *highest* setting under target − 2.5 % headroom. Usually takes 4–6 trial encodes.
 5. **Quality floor.** Never go below the user's floor (default 200 dpi). If the target can't be
-   met above the floor, say so and offer options: a larger target, split into parts, or
-   rasterise (with a preview first).
-6. **Verify.** Re-open the output and confirm that the page count, text extraction, fonts, links, bookmarks and
-   form fields all match the original. Compare image SSIM and flag anything under 0.97.
+   met above the floor, say so and offer a larger target or a lower floor. (Splitting into parts
+   is a possible future addition.)
+6. **Verify.** Re-open the output and confirm that the page count, page sizes, text extraction, fonts, links,
+   bookmarks and form fields all match the original. Each re-encoded image is decoded again and
+   compared with its source, and restored if the colours drift.
 
 Sizes use **decimal MB** (2 MB = 2,000,000 bytes), the stricter of the two conventions,
 plus 2.5 % headroom. That lets a "2 MB" upload portal accept the file whichever convention it uses.
@@ -55,13 +56,13 @@ Output goes next to it as `name (2 MB).pdf`.
 
 ## Proposed stack
 
-- **Engine:** Python 3.12 + `pikepdf` (qpdf: lossless rewrite, object streams, dedupe) +
-  `PyMuPDF` (analysis, font subsetting, image placement and dpi) + `Pillow` (image re-encoding).
+- **Engine:** Python 3.12 + `PyMuPDF` (analysis, lossless rewrite, object streams, dedupe, font
+  subsetting via fontTools, image placement and dpi, rendering for checks) + `Pillow` (image re-encoding).
 - **UI:** the HTML prototype becomes the real front end, shown in a native window with
   `pywebview`. Everything runs locally, and no files are uploaded.
 - **Packaging:** PyInstaller produces a single `Pressroom.exe`.
 - Setup on this machine (approved: install whatever's needed): `winget install Python.Python.3.12`
-  (only the Microsoft Store shortcut is there now), then `pip install pikepdf pymupdf pillow pywebview pyinstaller`.
+  (only the Microsoft Store shortcut is there now), then `pip install -r requirements.txt`.
 
 Alternative if you'd rather avoid Python: Node + Electron + `qpdf` WASM + `sharp`. This works,
 but font subsetting is much weaker there, and font subsetting is often the biggest lossless saving.
