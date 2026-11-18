@@ -1,0 +1,493 @@
+<title>Pressroom</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,600;112,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: desktop app window. Toolbar on top, file queue on the left, inspector for the selected file on the right. Stacks to one column on phones. */
+:root {
+  --paper: #F3F5F8;
+  --surface: #FFFFFF;
+  --sunk: #E9EDF2;
+  --ink: #111827;
+  --ink-2: #4B5568;
+  --ink-3: #7A8499;
+  --line: #D8DEE7;
+  --accent: #0A7FBF;       /* process cyan */
+  --accent-soft: #E1F0F8;
+  --accent-ink: #FFFFFF;
+  --cut: #D1246B;          /* target line, like a die-cut line */
+  --ok: #1D7F48;  --ok-soft: #E2F3E9;
+  --warn: #9A6410; --warn-soft: #FBF0DC;
+  --bad: #B42727;  --bad-soft: #FBE5E5;
+  --seg-img: #0A7FBF; --seg-font: #7C5CC4; --seg-vec: #2E9E8F; --seg-meta: #B7BFCC;
+  --page: #FFFFFF; --page-ink: #1B1F27; --page-mute: #8A919E;
+  --shadow: 0 1px 2px rgba(17,24,39,.06), 0 4px 16px rgba(17,24,39,.06);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0D121A; --surface: #151C27; --sunk: #1C2431; --ink: #E6EBF2; --ink-2: #A3AEC0; --ink-3: #75819A;
+  --line: #29334A; --accent: #3AAFE8; --accent-soft: #12324A; --accent-ink: #06121C; --cut: #F0619D;
+  --ok: #57C98A; --ok-soft: #12301F; --warn: #E6AE52; --warn-soft: #33270F; --bad: #F27A7A; --bad-soft: #3A1717;
+  --seg-img: #3AAFE8; --seg-font: #A88BF0; --seg-vec: #4CC3B3; --seg-meta: #5B6780;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #0D121A; --surface: #151C27; --sunk: #1C2431; --ink: #E6EBF2; --ink-2: #A3AEC0; --ink-3: #75819A;
+  --line: #29334A; --accent: #3AAFE8; --accent-soft: #12324A; --accent-ink: #06121C; --cut: #F0619D;
+  --ok: #57C98A; --ok-soft: #12301F; --warn: #E6AE52; --warn-soft: #33270F; --bad: #F27A7A; --bad-soft: #3A1717;
+  --seg-img: #3AAFE8; --seg-font: #A88BF0; --seg-vec: #4CC3B3; --seg-meta: #5B6780;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 14px/1.5 var(--f-body); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+
+/* toolbar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.bar-in { max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.brand h1 { font: 700 19px/1 var(--f-display); font-stretch: 112%; letter-spacing: -.01em; margin: 0; }
+.reg { width: 22px; height: 22px; flex: none; }
+.ctl { display: flex; align-items: center; gap: 8px; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 5px 11px; border-radius: 6px; cursor: pointer; color: var(--ink-2); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.custom { width: 64px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* app */
+.app { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px;
+  padding-block: 20px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 900px) { .app { grid-template-columns: minmax(0, 1fr); } }
+
+.queue { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.drop { border: 1.5px dashed var(--line); border-radius: 12px; padding: 18px 16px; text-align: center; background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop strong { display: block; font-weight: 600; }
+.drop span { color: var(--ink-3); font-size: 13px; }
+.files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.file { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px;
+  background: var(--surface); border: 1px solid transparent; cursor: pointer; text-align: left; width: 100%; }
+.file:hover { border-color: var(--line); }
+.file[aria-current="true"] { border-color: var(--accent); box-shadow: var(--shadow); }
+.file .doc { grid-row: span 2; width: 22px; height: 28px; border-radius: 3px; background: var(--sunk); position: relative; border: 1px solid var(--line); }
+.file .doc::after { content: ""; position: absolute; left: 4px; right: 4px; top: 6px; height: 12px; background: repeating-linear-gradient(var(--ink-3) 0 1px, transparent 1px 4px); opacity: .5; }
+.file .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .sizes { font-size: 12px; color: var(--ink-3); grid-column: 2; }
+.file .pill { grid-row: span 2; grid-column: 3; }
+.prog { grid-column: 2 / 4; height: 3px; background: var(--sunk); border-radius: 2px; overflow: hidden; }
+.prog i { display: block; height: 100%; background: var(--accent); transition: width .25s; }
+.qfoot { font-size: 12.5px; color: var(--ink-3); padding: 4px 4px; display: flex; flex-direction: column; gap: 4px; }
+.qfoot b { color: var(--ink-2); font-weight: 600; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.idle { background: var(--sunk); color: var(--ink-2); }
+.pill.run { background: var(--accent-soft); color: var(--accent); }
+
+/* inspector */
+.detail { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.dhead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+.dhead > div:first-child { flex: 1 1 260px; min-width: 0; }
+.dhead h2 { font: 700 22px/1.2 var(--f-display); font-stretch: 112%; margin: 0 0 4px; overflow-wrap: anywhere; text-wrap: balance; }
+.dhead p { margin: 0; color: var(--ink-3); font-size: 13px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.metrics { display: grid; grid-template-columns: repeat(3, auto) minmax(220px, 1fr); gap: 16px 32px; align-items: end; }
+@media (max-width: 700px) { .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .gauge { grid-column: 1 / -1; } }
+.metric .v { font: 600 26px/1.1 var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.metric .v small { font-size: 14px; color: var(--ink-3); font-weight: 500; margin-left: 2px; }
+.metric.after .v { color: var(--accent); }
+.gauge .track { position: relative; height: 12px; background: var(--sunk); border-radius: 6px; margin-top: 22px; }
+.gauge .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--accent); transition: width .4s; }
+.gauge .fill.bad { background: var(--bad); }
+.gauge .cutline { position: absolute; top: -18px; bottom: -4px; width: 0; border-left: 2px dashed var(--cut); }
+.gauge .cutline span { position: absolute; top: -2px; right: 6px; font: 600 11px/1 var(--f-mono); color: var(--cut); white-space: nowrap; }
+.gauge .scale { display: flex; justify-content: space-between; font: 11px var(--f-mono); color: var(--ink-3); margin-top: 4px; }
+
+.callout { border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.callout.bad { background: var(--bad-soft); }
+.callout.warn { background: var(--warn-soft); }
+.callout.info { background: var(--accent-soft); }
+.callout p { margin: 0; max-width: 70ch; }
+.callout .actions .btn { background: var(--surface); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 1100px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.sect { display: flex; flex-direction: column; gap: 10px; }
+.sect-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* compare preview */
+.viewer { background: var(--sunk); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.vtools { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stage { overflow: auto; border-radius: 6px; max-height: 520px; background: var(--sunk); }
+.stage-in { position: relative; margin: 0 auto; }
+.layer { position: absolute; inset: 0; }
+.layer.after { clip-path: inset(0 0 0 var(--split, 50%)); }
+.splitter { position: absolute; top: 0; bottom: 0; left: var(--split, 50%); width: 0; border-left: 2px solid var(--cut); pointer-events: none; }
+.splitter::after { content: ""; position: absolute; top: 50%; left: -9px; width: 16px; height: 16px; border-radius: 50%; background: var(--cut); box-shadow: 0 0 0 3px var(--surface); transform: translateY(-50%); }
+.tag { position: absolute; top: 8px; font: 600 10.5px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 6px; border-radius: 4px; background: rgba(17,24,39,.72); color: #fff; pointer-events: none; }
+.tag.l { left: 8px; } .tag.r { right: 8px; }
+#split { width: 100%; accent-color: var(--cut); }
+.page { width: 100%; height: 100%; background: var(--page); color: var(--page-ink); box-shadow: 0 2px 12px rgba(0,0,0,.18); padding: 7% 8%; display: flex; flex-direction: column; gap: 3.2%; font-family: Georgia, "Times New Roman", serif; overflow: hidden; }
+.page .ph-kicker { font: 600 calc(var(--pw) * .022) / 1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--page-mute); }
+.page .ph-title { font-size: calc(var(--pw) * .062); line-height: 1.05; font-weight: 700; }
+.page p { margin: 0; font-size: calc(var(--pw) * .026); line-height: 1.45; color: var(--page-ink); }
+.page canvas { width: 100%; height: auto; display: block; border-radius: 2px; }
+.page .cap { font: calc(var(--pw) * .02) / 1.3 var(--f-body); color: var(--page-mute); }
+.page svg { width: 100%; height: auto; display: block; }
+
+/* bytes breakdown */
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.brow { display: grid; grid-template-columns: 52px minmax(0, 1fr) 72px; gap: 10px; align-items: center; font-size: 12.5px; }
+.brow .t { color: var(--ink-3); }
+.brow .n { text-align: right; }
+.stack { display: flex; height: 16px; border-radius: 4px; overflow: hidden; background: transparent; transition: width .4s; min-width: 3px; }
+.stack i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+.changes, .kept { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.changes li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.changes li:first-child { border-top: 0; }
+.kind { font: 600 10.5px/1.6 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 4px; justify-self: start; }
+.kind.lossless { background: var(--ok-soft); color: var(--ok); }
+.kind.image { background: var(--accent-soft); color: var(--accent); }
+.kind.none { background: var(--sunk); color: var(--ink-3); }
+.changes .saved { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.kept { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 16px; }
+.kept li { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--ink-2); }
+.kept li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+.proto { font-size: 12px; color: var(--ink-3); text-align: center; padding-bottom: 24px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand">
+      <svg class="reg" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="var(--ink)" stroke-width="1.5"/><path d="M11 0v22M0 11h22" stroke="var(--ink)" stroke-width="1.5"/><circle cx="11" cy="11" r="2.4" fill="var(--cut)"/></svg>
+      <h1>Pressroom</h1>
+    </div>
+    <div class="ctl">
+      <span class="label" id="tgtLbl">Target</span>
+      <div class="seg" role="group" aria-labelledby="tgtLbl" id="targetSeg">
+        <button type="button" data-t="1">1 MB</button>
+        <button type="button" data-t="2" aria-pressed="true">2 MB</button>
+        <button type="button" data-t="5">5 MB</button>
+      </div>
+      <input class="custom mono" id="customT" type="number" min="0.1" step="0.1" placeholder="Other" aria-label="Custom target in MB">
+    </div>
+    <div class="ctl">
+      <label class="label" for="floor">Never below</label>
+      <select id="floor">
+        <option value="300">300 dpi · print</option>
+        <option value="200" selected>200 dpi · sharp screen</option>
+        <option value="150">150 dpi · screen</option>
+      </select>
+    </div>
+    <button class="btn primary" id="runAll" type="button">Compress all</button>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="queue">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Add PDFs">
+      <strong>Drop PDFs here</strong>
+      <span>or click to choose files. Nothing leaves your computer.</span>
+      <input type="file" id="picker" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+    <ul class="files" id="files"></ul>
+    <div class="qfoot">
+      <div>Saved next to each original as <b class="mono" id="suffixEx">name (2 MB).pdf</b>. Originals are never changed.</div>
+      <div id="totals"></div>
+    </div>
+  </aside>
+
+  <section class="detail" id="detail" aria-live="polite"></section>
+</main>
+<p class="proto">Interactive prototype with example files. The compression results are simulated.</p>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const MB = 1e6;
+const HEADROOM = 0.975; // aim 2.5% under the target
+const state = { target: 2, floor: 200, sel: 0, files: [] };
+
+// Model per file: bytes before (by kind), bytes after the lossless pass (non-image parts),
+// image bytes after lossless only, and image bytes when re-encoded at 300 dpi.
+const samples = [
+  { name: "Lease-Agreement-signed.pdf", pages: 14, hue: 210, kicker: "Residential lease · Schedule B", title: "Harbourview Residences, Unit 4C",
+    before: { img: 8.01, font: .12, vec: .06, meta: .23 }, after: { font: .09, vec: .05, meta: .03 }, img300: 1.71, nImg: 14,
+    imgDesc: n => `${n} scanned pages`, lossless: [["Removed 14 embedded page thumbnails", .18], ["Subset 3 fonts to the characters used", .03], ["Recompressed streams and packed objects", .04]],
+    extra: "Pages 1–13 are greyscale and stay greyscale. Page 14 keeps colour for the blue-ink signature." },
+  { name: "Portfolio-2026.pdf", pages: 22, hue: 28, kicker: "Selected work · 2024–2026", title: "Light, Glass & Stone",
+    before: { img: 30.4, font: .9, vec: .2, meta: .2 }, after: { font: .21, vec: .08, meta: .02 }, img300: 3.4, nImg: 41,
+    imgDesc: n => `${n} photos`, lossless: [["Merged 6 duplicate copies of the logo", 1.1], ["Subset 4 fonts to the characters used", .69], ["Removed edit history (XMP)", .18]],
+    extra: "3 images with transparency stay lossless, with their masks kept separate." },
+  { name: "Invoice-0457.pdf", pages: 1, hue: 150, kicker: "Invoice · INV-0457", title: "Northgate Studio Ltd",
+    before: { img: .08, font: 2.21, vec: .02, meta: .33 }, after: { font: .19, vec: .02, meta: .02 }, img300: .08, nImg: 1,
+    imgDesc: n => `${n} logo`, lossless: [["Subset Noto Sans: 2,914 glyphs → 61 used", 2.02], ["Removed page thumbnail and edit history", .31]] },
+  { name: "Site-Plan-A1.pdf", pages: 1, hue: 190, kicker: "Drawing A1-002 · Rev C", title: "Site Plan, Ground Floor",
+    before: { img: .3, font: .1, vec: 5.6, meta: .18 }, after: { font: .08, vec: 4.72, meta: .02 }, img300: .1, nImg: 2, vector: true,
+    imgDesc: n => `${n} aerial photos`, lossless: [["Recompressed vector streams at maximum", .88], ["Removed edit history (XMP)", .16]] },
+  { name: "Brochure-Autumn.pdf", pages: 12, hue: 340, kicker: "Autumn programme", title: "Evenings at the Gallery",
+    before: { img: 18.1, font: .5, vec: .15, meta: .15 }, after: { font: .27, vec: .1, meta: .03 }, img300: 1.45, nImg: 26,
+    imgDesc: n => `${n} photos`, lossless: [["Subset 5 fonts to the characters used", .23], ["Removed edit history (XMP)", .12]], queued: true },
+];
+
+const sum = o => o.img + o.font + o.vec + o.meta;
+const fmt = (x) => x >= 10 ? x.toFixed(1) : x >= 1 ? x.toFixed(2) : x.toFixed(2);
+const fmtMB = x => `${fmt(x)} MB`;
+
+function solve(f) {
+  const budget = state.target * HEADROOM;
+  const non = f.after.font + f.after.vec + f.after.meta;
+  const imgLossless = f.before.img;
+  if (non + imgLossless <= budget) return { status: "lossless", size: non + imgLossless, img: imgLossless, dpi: null, q: null };
+  if (non + f.img300 <= budget) return { status: "fit", size: non + f.img300, img: f.img300, dpi: 300, q: 90 };
+  let dpi = Math.floor(300 * Math.sqrt(Math.max(0, budget - non) / f.img300) / 5) * 5;
+  if (dpi >= state.floor) {
+    const img = f.img300 * (dpi / 300) ** 2;
+    return { status: dpi >= 300 ? "fit" : "fit-low", size: non + img, img, dpi, q: dpi >= 250 ? 88 : 84 };
+  }
+  const img = f.img300 * (state.floor / 300) ** 2;
+  return { status: "nofit", size: non + img, img, dpi: state.floor, q: 82 };
+}
+
+function init() {
+  state.files = samples.map(s => ({ ...s, phase: s.queued ? "ready" : "done", progress: 0 }));
+  state.files.forEach(f => { if (f.phase === "done") f.result = solve(f); });
+  render();
+}
+
+function pill(f) {
+  if (f.phase === "ready") return `<span class="pill idle">Ready</span>`;
+  if (f.phase === "stale") return `<span class="pill idle">Re-run</span>`;
+  if (f.phase === "run") return `<span class="pill run">${f.stepText || "Working"}</span>`;
+  const r = f.result;
+  if (r.status === "lossless") return `<span class="pill ok">Lossless</span>`;
+  if (r.status === "fit") return `<span class="pill ok">Fits · 300 dpi</span>`;
+  if (r.status === "fit-low") return `<span class="pill warn">Fits · ${r.dpi} dpi</span>`;
+  return `<span class="pill bad">Over target</span>`;
+}
+
+function renderList() {
+  const ul = document.getElementById("files");
+  ul.innerHTML = state.files.map((f, i) => {
+    const b = sum(f.before);
+    const sizes = f.phase === "done" ? `<span class="mono">${fmtMB(b)} → ${fmtMB(f.result.size)}</span>` : `<span class="mono">${fmtMB(b)}</span> · ${f.pages || "?"} pages`;
+    return `<li><button class="file" type="button" data-i="${i}" aria-current="${i === state.sel}">
+      <span class="doc" aria-hidden="true"></span><span class="name">${esc(f.name)}</span>${pill(f)}
+      <span class="sizes">${sizes}</span>
+      ${f.phase === "run" ? `<span class="prog"><i style="width:${f.progress}%"></i></span>` : ""}
+    </button></li>`;
+  }).join("");
+  ul.querySelectorAll(".file").forEach(b => b.onclick = () => { state.sel = +b.dataset.i; render(); });
+
+  const done = state.files.filter(f => f.phase === "done");
+  const tb = done.reduce((a, f) => a + sum(f.before), 0), ta = done.reduce((a, f) => a + f.result.size, 0);
+  document.getElementById("totals").innerHTML = done.length
+    ? `${done.length} of ${state.files.length} done · <b class="mono">${fmtMB(tb)} → ${fmtMB(ta)}</b>` : "";
+  document.getElementById("suffixEx").textContent = `name (${state.target} MB).pdf`;
+  document.getElementById("runAll").disabled = !state.files.some(f => f.phase === "ready" || f.phase === "stale");
+}
+
+function renderDetail() {
+  const el = document.getElementById("detail");
+  const f = state.files[state.sel];
+  if (!f) { el.innerHTML = `<p>Add a PDF to begin.</p>`; return; }
+  const b = sum(f.before);
+  const r = f.phase === "done" ? f.result : null;
+  const head = `<div class="dhead"><div><h2>${esc(f.name)}</h2>
+      <p>${f.pages || "?"} pages · ${fmtMB(b)} original${f.user ? " · added by you" : ""}</p></div>
+      <div class="actions">${r && r.status !== "nofit" ? `<button class="btn" type="button" data-act="open">Show in folder</button><button class="btn primary" type="button" data-act="save">Save copy</button>` : ""}
+      ${f.phase !== "done" && f.phase !== "run" ? `<button class="btn primary" type="button" data-act="run">Compress</button>` : ""}</div></div>`;
+
+  const max = Math.max(state.target * 1.25, r ? r.size * 1.05 : 0);
+  const after = r ? r.size : null;
+  const metrics = `<div class="metrics">
+      <div class="metric"><div class="label">Before</div><div class="v">${fmt(b)}<small>MB</small></div></div>
+      <div class="metric after"><div class="label">After</div><div class="v">${r ? fmt(after) : "—"}<small>${r ? "MB" : ""}</small></div></div>
+      <div class="metric"><div class="label">Smaller by</div><div class="v">${r ? Math.round((1 - after / b) * 100) + "<small>%</small>" : "—"}</div></div>
+      <div class="gauge" aria-label="Result compared to target">
+        <div class="track"><div class="fill ${r && r.status === "nofit" ? "bad" : ""}" style="width:${r ? Math.min(100, after / max * 100) : 0}%"></div>
+          <div class="cutline" style="left:${state.target / max * 100}%"><span>${state.target} MB target</span></div></div>
+        <div class="scale"><span>0</span><span>${fmt(max)} MB</span></div>
+      </div></div>`;
+
+  let callout = "";
+  if (f.phase === "ready" || f.phase === "stale") callout = `<div class="callout info"><p>${f.phase === "stale" ? "The target or quality floor changed. Compress again to update this result." : "Pressroom will try lossless savings first and re-encode images only if that isn't enough."}</p></div>`;
+  if (f.phase === "run") callout = `<div class="callout info"><p><b>${f.stepText}</b> · ${f.progress}%</p></div>`;
+  if (r && r.status === "lossless") callout = `<div class="callout info"><p><b>No visible change.</b> Removing unused and duplicated data was enough, so every image is untouched.</p></div>`;
+  if (r && r.status === "fit-low") callout = `<div class="callout warn"><p><b>Fits at ${r.dpi} dpi.</b> This looks sharp on screen and in normal zoom. For full-size printing, a ${Math.ceil((f.after.font + f.after.vec + f.after.meta + f.img300) / HEADROOM)} MB target would keep 300 dpi.</p></div>`;
+  if (r && r.status === "nofit") callout = `<div class="callout bad"><p><b>Can't reach ${state.target} MB above ${state.floor} dpi.</b> ${f.vector ? "Almost all of this file is vector line work (about 412,000 paths). Making it smaller means turning the drawing into an image, which goes blurry when you zoom in." : `The smallest version at ${state.floor} dpi is ${fmtMB(r.size)}.`}</p>
+      <div class="actions"><button class="btn" type="button" data-act="bump">Use a ${Math.ceil(r.size / HEADROOM)} MB target</button><button class="btn" type="button" data-act="split">Split into ${Math.ceil(r.size / (state.target * HEADROOM))} parts under ${state.target} MB</button>${f.vector ? `<button class="btn" type="button" data-act="raster">Preview as image (300 dpi)</button>` : `<button class="btn" type="button" data-act="lower">Allow 150 dpi</button>`}</div></div>`;
+
+  const segs = [["img", "Images", "var(--seg-img)"], ["font", "Fonts", "var(--seg-font)"], ["vec", "Text & vectors", "var(--seg-vec)"], ["meta", "Metadata & extras", "var(--seg-meta)"]];
+  const aft = r ? { img: r.img, ...f.after } : null;
+  const stack = (o, w) => `<div class="stack" style="width:${w}%">${segs.map(([k, , c]) => `<i style="flex:${o[k]};background:${c}" title="${k}"></i>`).join("")}</div>`;
+  const bytes = `<div class="sect"><div class="sect-h"><span class="label">Where the bytes are</span></div>
+      <div class="bars"><div class="brow"><span class="t">Before</span>${stack(f.before, 100)}<span class="n mono">${fmtMB(b)}</span></div>
+      <div class="brow"><span class="t">After</span>${aft ? stack(aft, Math.max(.6, r.size / b * 100)) : `<div></div>`}<span class="n mono">${r ? fmtMB(r.size) : "—"}</span></div></div>
+      <div class="legend">${segs.map(([k, l, c]) => `<span><i style="background:${c}"></i>${l} <span class="mono">${fmt(f.before[k])}</span></span>`).join("")}</div></div>`;
+
+  let changes = "";
+  if (r) {
+    const rows = f.lossless.map(([t, s]) => ["lossless", t, s]);
+    if (r.status === "lossless") rows.push(["none", `Images left untouched (${f.imgDesc(f.nImg)})`, 0]);
+    else rows.push(["image", `Re-encoded ${f.imgDesc(f.nImg)} at ${r.dpi} dpi for their printed size, JPEG quality ${r.q}`, f.before.img - r.img]);
+    if (f.extra && r.status !== "lossless") rows.push(["none", f.extra, 0]);
+    changes = `<div class="sect"><div class="sect-h"><span class="label">What changed</span></div><ul class="changes">${rows.map(([k, t, s]) =>
+      `<li><span class="kind ${k}">${k === "none" ? "kept" : k}</span><span>${esc(t)}</span><span class="saved mono">${s ? "−" + fmtMB(s) : ""}</span></li>`).join("")}</ul></div>`;
+  }
+  const kept = `<div class="sect"><span class="label">Kept exactly as in the original</span><ul class="kept">
+      <li>Text stays real text (searchable)</li><li>Every font, same glyph shapes</li><li>Colour profiles (sRGB, CMYK)</li>
+      <li>Vector drawings and charts</li><li>Links, bookmarks, form fields</li><li>Page size and orientation</li></ul></div>`;
+
+  const viewer = `<div class="sect"><div class="viewer">
+      <div class="vtools"><span class="label">Compare · drag the line</span>
+        <div class="seg" role="group" aria-label="Zoom" id="zoomSeg">${[1, 2, 4].map(z => `<button type="button" data-z="${z}" aria-pressed="${z === (state.zoom || 1)}">${z * 100}%</button>`).join("")}</div></div>
+      <div class="stage" id="stage"><div class="stage-in" id="stageIn">
+        <div class="layer before" id="lBefore"></div><div class="layer after" id="lAfter"></div>
+        <div class="splitter"></div><span class="tag l">Original</span><span class="tag r">${r ? (r.dpi ? r.dpi + " dpi" : "Lossless") : "Compressed"}</span>
+      </div></div>
+      <input type="range" id="split" min="0" max="100" value="${state.split ?? 50}" aria-label="Comparison divider position">
+    </div></div>`;
+
+  el.innerHTML = head + metrics + callout + `<div class="cols"><div class="col">${viewer}</div><div class="col">${bytes}${changes}${kept}</div></div>`;
+  el.querySelectorAll("[data-act]").forEach(btn => btn.onclick = () => act(btn.dataset.act, f));
+  el.querySelectorAll("#zoomSeg button").forEach(btn => btn.onclick = () => { state.zoom = +btn.dataset.z; renderDetail(); });
+  const split = el.querySelector("#split");
+  split.oninput = () => { state.split = +split.value; el.querySelector("#stageIn").style.setProperty("--split", split.value + "%"); };
+  drawPage(f, r);
+}
+
+/* ---------- page preview ---------- */
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function photo(f) {
+  const c = document.createElement("canvas"); c.width = 1200; c.height = 760;
+  const g = c.getContext("2d"), R = rng(f.hue * 97 + 13), h = f.hue;
+  const sky = g.createLinearGradient(0, 0, 0, 470);
+  sky.addColorStop(0, `hsl(${h} 55% 38%)`); sky.addColorStop(1, `hsl(${(h + 30) % 360} 70% 78%)`);
+  g.fillStyle = sky; g.fillRect(0, 0, 1200, 760);
+  g.fillStyle = `hsl(${(h + 40) % 360} 90% 88%)`; g.beginPath(); g.arc(860, 250, 70, 0, 7); g.fill();
+  for (let L = 0; L < 4; L++) {
+    g.fillStyle = `hsl(${(h + 200) % 360} ${25 + L * 8}% ${48 - L * 10}%)`; g.beginPath(); g.moveTo(0, 760);
+    let y = 330 + L * 60; for (let x = 0; x <= 1200; x += 12) { y += (R() - .5) * 26; y = Math.max(230 + L * 50, Math.min(470 + L * 40, y)); g.lineTo(x, y); }
+    g.lineTo(1200, 760); g.fill();
+  }
+  for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(255,255,255,${R() * .08})`; g.fillRect(R() * 1200, 470 + R() * 290, 1 + R() * 3, 1); }
+  g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1;
+  for (let i = 0; i < 40; i++) { const x = 80 + i * 26; g.beginPath(); g.moveTo(x, 560 - (i % 5) * 4); g.lineTo(x + 4, 470 + (i % 7) * 6); g.stroke(); }
+  return c;
+}
+function resampled(src, dpi) {
+  const k = Math.min(1, (dpi || 300) / 300) * 0.55; // source is ~3x oversampled for a 1x view
+  const s = document.createElement("canvas"); s.width = Math.round(src.width * k); s.height = Math.round(src.height * k);
+  s.getContext("2d").drawImage(src, 0, 0, s.width, s.height);
+  const o = document.createElement("canvas"); o.width = src.width; o.height = src.height;
+  const g = o.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(s, 0, 0, o.width, o.height); return o;
+}
+function pageHTML(f) {
+  const bars = [62, 80, 54, 91, 73, 86].map((v, i) => `<rect x="${12 + i * 46}" y="${100 - v}" width="30" height="${v}" fill="hsl(${f.hue} 45% ${40 + i * 4}%)"/>`).join("");
+  return `<div class="page"><div class="ph-kicker">${esc(f.kicker || "Document")}</div><div class="ph-title">${esc(f.title || f.name)}</div>
+    <p>The original layout, type and colour are carried through unchanged; only the photograph below is re-encoded, at the resolution it is actually printed.</p>
+    <div class="ph-img"></div><div class="cap">Fig. 1. Photograph, placed at 160 × 101 mm</div>
+    <svg viewBox="0 0 290 108" aria-hidden="true"><line x1="0" y1="100.5" x2="290" y2="100.5" stroke="#9aa1ad"/>${bars}</svg>
+    <p>Charts like this one are vector drawings, so they stay pin-sharp at any zoom whatever the target size.</p></div>`;
+}
+function drawPage(f, r) {
+  const zoom = state.zoom || 1, stage = document.getElementById("stage"), inner = document.getElementById("stageIn");
+  const w = Math.min(stage.clientWidth - 2, 420) * zoom;
+  inner.style.width = w + "px"; inner.style.height = w * 1.414 + "px"; inner.style.setProperty("--pw", w + "px");
+  inner.style.setProperty("--split", (state.split ?? 50) + "%");
+  const src = f._photo || (f._photo = photo(f));
+  const before = document.getElementById("lBefore"), after = document.getElementById("lAfter");
+  before.innerHTML = pageHTML(f); after.innerHTML = pageHTML(f);
+  const cb = src; const ca = r && r.dpi ? resampled(src, r.dpi * (r.status === "nofit" ? .9 : 1) * (zoom > 1 ? 1 : 1)) : src;
+  before.querySelector(".ph-img").appendChild(clone(cb)); after.querySelector(".ph-img").appendChild(clone(ca));
+}
+function clone(c) { const o = document.createElement("canvas"); o.width = c.width; o.height = c.height; o.getContext("2d").drawImage(c, 0, 0); return o; }
+
+/* ---------- actions ---------- */
+function act(a, f) {
+  if (a === "run") return run([f]);
+  if (a === "save") return toast(`Saved “${f.name.replace(/\.pdf$/i, "")} (${state.target} MB).pdf” next to the original`);
+  if (a === "open") return toast("Opens the folder in File Explorer (desktop app only)");
+  if (a === "bump") { setTarget(Math.ceil(f.result.size / HEADROOM)); return run([f]); }
+  if (a === "lower") { state.floor = 150; document.getElementById("floor").value = "150"; markStale(); return run([f]); }
+  if (a === "split") return toast("Splitting by page ranges is planned for the first version");
+  if (a === "raster") return toast("Rasterising preview: shows the drawing as a 300 dpi image before you commit");
+}
+function run(list) {
+  const steps = [["Reading", 12], ["Analysing images", 30], ["Lossless pass", 52], ["Finding best quality", 86], ["Checking output", 100]];
+  list.forEach(f => { f.phase = "run"; f.progress = 0; f.stepText = steps[0][0]; });
+  render();
+  let i = 0;
+  const tick = () => {
+    if (i >= steps.length) { list.forEach(f => { f.phase = "done"; f.result = solve(f); }); render(); return; }
+    list.forEach(f => { f.stepText = steps[i][0]; f.progress = steps[i][1]; }); i++; renderList(); if (list.includes(state.files[state.sel])) renderDetailLite();
+    setTimeout(tick, 380);
+  };
+  setTimeout(tick, 200);
+}
+function renderDetailLite() { const f = state.files[state.sel]; const c = document.querySelector("#detail .callout.info p"); if (c && f.phase === "run") c.innerHTML = `<b>${f.stepText}</b> · ${f.progress}%`; }
+function markStale() { state.files.forEach(f => { if (f.phase === "done") f.phase = "stale"; }); render(); }
+function setTarget(t) {
+  state.target = t;
+  document.querySelectorAll("#targetSeg button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.t === t)));
+  document.getElementById("customT").value = [1, 2, 5].includes(t) ? "" : t;
+  markStale();
+}
+
+document.querySelectorAll("#targetSeg button").forEach(b => b.onclick = () => setTarget(+b.dataset.t));
+document.getElementById("customT").onchange = e => { const v = parseFloat(e.target.value); if (v > 0) setTarget(Math.round(v * 10) / 10); };
+document.getElementById("floor").onchange = e => { state.floor = +e.target.value; markStale(); };
+document.getElementById("runAll").onclick = () => run(state.files.filter(f => f.phase === "ready" || f.phase === "stale"));
+
+const drop = document.getElementById("drop"), picker = document.getElementById("picker");
+drop.onclick = () => picker.click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); picker.click(); } };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); };
+picker.onchange = () => { addFiles(picker.files); picker.value = ""; };
+function addFiles(list) {
+  const pdfs = [...list].filter(x => /\.pdf$/i.test(x.name) || x.type === "application/pdf");
+  if (!pdfs.length) return toast("Only PDF files can be added");
+  pdfs.forEach(x => {
+    const m = x.size / MB;
+    state.files.push({ name: x.name, pages: null, hue: Math.round(Math.random() * 360), user: true, phase: "ready", progress: 0,
+      before: { img: m * .86, font: m * .07, vec: m * .04, meta: m * .03 }, after: { font: m * .02, vec: m * .035, meta: m * .005 }, img300: m * .2, nImg: 1,
+      imgDesc: () => "embedded images (simulated)", lossless: [["Subset fonts and removed extras (simulated)", m * .085]] });
+  });
+  state.sel = state.files.length - 1; render();
+  toast("Added. The prototype only reads the file size; results are simulated.");
+}
+
+let tt; function toast(t) { const el = document.getElementById("toast"); el.textContent = t; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 3200); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function render() { renderList(); renderDetail(); }
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { const f = state.files[state.sel]; if (f) drawPage(f, f.phase === "done" ? f.result : null); }, 150); });
+state.sel = 1;
+init();
+</script>

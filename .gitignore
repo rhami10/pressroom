@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Build output (rebuild with .\build.ps1)
+build/
+dist/
+*.spec
+pressroom.ico
+
+# Generated test PDFs (regenerate with tests\make_samples.py)
+tests/samples/
+tests/samples-small/
+
+# Never commit real documents
+*.pdf

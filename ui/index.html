@@ -1,0 +1,619 @@
+<title>Pressroom</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: HUD-style instrument panel. Command bar on top, file queue on the left, inspector on the right with a radial size gauge and a live before/after page comparison. Single deliberate dark look. */
+:root {
+  color-scheme: dark;
+  --void: #05080F;          /* page background */
+  --hull: rgba(14, 22, 38, .72);   /* glass panels */
+  --hull-solid: #0E1626;
+  --hull-2: rgba(24, 36, 60, .6);
+  --edge: rgba(120, 170, 255, .14);
+  --edge-hi: rgba(110, 230, 255, .45);
+  --text: #E4ECFA;
+  --text-2: #94A4C2;
+  --text-3: #5D6C8A;
+  --ion: #3BE3FF;           /* primary accent */
+  --plasma: #8E6BFF;        /* secondary accent */
+  --cut: #FF3D9A;           /* target line */
+  --ok: #34E3A0; --warn: #FFB84D; --bad: #FF5C6C;
+  --ok-dim: rgba(52, 227, 160, .12); --warn-dim: rgba(255, 184, 77, .12); --bad-dim: rgba(255, 92, 108, .13); --ion-dim: rgba(59, 227, 255, .1);
+  --seg-img: #3BE3FF; --seg-font: #8E6BFF; --seg-vec: #34E3A0; --seg-meta: #5D6C8A;
+  --page: #FFFFFF;
+  --glow: 0 0 0 1px rgba(59, 227, 255, .35), 0 0 24px rgba(59, 227, 255, .18);
+  --f-display: "Chakra Petch", "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Sora", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: var(--void); color: var(--text); font: 13.5px/1.55 var(--f-body);
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, rgba(142, 107, 255, .16), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(59, 227, 255, .10), transparent 60%),
+    linear-gradient(rgba(120, 170, 255, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 170, 255, .045) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px; background-attachment: fixed; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ion); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.label { font: 600 10.5px/1.2 var(--f-display); letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+
+/* HUD corner brackets */
+.hud { position: relative; }
+.hud::before, .hud::after { content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none; border-color: var(--edge-hi); border-style: solid; }
+.hud::before { top: -1px; left: -1px; border-width: 1.5px 0 0 1.5px; border-top-left-radius: 4px; }
+.hud::after { bottom: -1px; right: -1px; border-width: 0 1.5px 1.5px 0; border-bottom-right-radius: 4px; }
+
+/* command bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(5, 8, 15, .78); backdrop-filter: blur(14px); border-bottom: 1px solid var(--edge);
+  padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--void); }
+.bar-in { max-width: 1360px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.brand h1 { margin: 0; font: 700 17px/1 var(--f-display); letter-spacing: .32em; text-transform: uppercase; }
+.brand small { display: block; font: 500 10px/1 var(--f-mono); color: var(--text-3); letter-spacing: .08em; margin-top: 5px; }
+.mark { width: 30px; height: 30px; flex: none; filter: drop-shadow(0 0 6px rgba(59, 227, 255, .5)); }
+.ctl { display: flex; align-items: center; gap: 10px; }
+.seg { display: inline-flex; background: var(--hull-2); border: 1px solid var(--edge); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 5px 11px; border-radius: 6px; cursor: pointer; color: var(--text-2); font: 500 12.5px var(--f-mono); }
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--ion-dim); color: var(--ion); box-shadow: inset 0 0 0 1px rgba(59, 227, 255, .45); }
+.field { width: 72px; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 8px; background: var(--hull-2); font-family: var(--f-mono); }
+select.field { width: auto; padding-right: 26px; }
+.btn { border: 1px solid var(--edge); background: var(--hull-2); padding: 7px 14px; border-radius: 9px; cursor: pointer; font-weight: 500; transition: border-color .15s, box-shadow .15s; white-space: nowrap; }
+.btn:hover { border-color: var(--edge-hi); }
+.btn.go { border: 0; color: #031018; font: 700 12.5px var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 9px 18px;
+  background: linear-gradient(100deg, var(--ion), var(--plasma)); box-shadow: 0 0 22px rgba(59, 227, 255, .3); }
+.btn.go:hover { box-shadow: 0 0 30px rgba(142, 107, 255, .5); }
+.btn:disabled { opacity: .4; cursor: default; box-shadow: none; }
+.btn.ghost { background: transparent; }
+
+/* layout */
+.app { max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px;
+  padding-block: 20px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 920px) { .app { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--hull); border: 1px solid var(--edge); border-radius: 14px; backdrop-filter: blur(12px); }
+
+/* queue */
+.queue { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.drop { padding: 22px 16px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: box-shadow .2s, background .2s; }
+.drop:hover, .drop.over { box-shadow: var(--glow); background: rgba(59, 227, 255, .06); }
+.drop svg { width: 34px; height: 34px; color: var(--ion); }
+.drop strong { font: 600 14px var(--f-display); letter-spacing: .06em; }
+.drop span { color: var(--text-3); font-size: 12px; }
+.files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.file { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; padding: 11px 13px; border-radius: 11px;
+  background: var(--hull); border: 1px solid var(--edge); cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.file:hover { border-color: rgba(120, 170, 255, .3); }
+.file[aria-current="true"] { box-shadow: var(--glow); border-color: transparent; }
+.file .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .sizes { font: 11.5px var(--f-mono); color: var(--text-3); grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; }
+.file .sizes b { color: var(--ion); font-weight: 500; }
+.prog { grid-column: 1 / -1; height: 2px; background: var(--hull-2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--ion), var(--plasma)); box-shadow: 0 0 8px var(--ion); transition: width .3s; }
+.qfoot { font-size: 12px; color: var(--text-3); padding: 2px 4px; display: flex; flex-direction: column; gap: 6px; }
+.qfoot b { color: var(--text-2); font-weight: 500; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font: 600 10.5px/1.6 var(--f-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.chip.ok { background: var(--ok-dim); color: var(--ok); }
+.chip.warn { background: var(--warn-dim); color: var(--warn); }
+.chip.bad { background: var(--bad-dim); color: var(--bad); }
+.chip.idle { background: var(--hull-2); color: var(--text-2); }
+.chip.run { background: var(--ion-dim); color: var(--ion); }
+.chip.run::before { animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+
+/* inspector */
+.detail { padding: 22px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.dhead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+.dhead > div:first-child { flex: 1 1 260px; min-width: 0; }
+.dhead h2 { font: 600 22px/1.2 var(--f-display); margin: 0 0 6px; overflow-wrap: anywhere; text-wrap: balance; letter-spacing: .01em; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--text-3); font: 12px var(--f-mono); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.empty { min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; color: var(--text-2); }
+
+.readout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 22px; align-items: center; }
+@media (max-width: 640px) { .readout { grid-template-columns: minmax(0, 1fr); justify-items: center; } }
+.dial { width: 210px; max-width: 100%; aspect-ratio: 1; position: relative; }
+.dial svg { width: 100%; height: 100%; overflow: visible; }
+.dial .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-top: 6px; }
+.dial .big { font: 700 34px/1 var(--f-mono); letter-spacing: -.03em; }
+.dial .big small { font-size: 14px; color: var(--text-3); font-weight: 500; margin-left: 3px; }
+.dial .sub { font: 11px var(--f-mono); color: var(--text-3); margin-top: 6px; }
+.dial .arc-fill { transition: stroke-dasharray .7s cubic-bezier(.2, .8, .2, 1); }
+.stats { display: flex; flex-direction: column; gap: 14px; min-width: 0; width: 100%; }
+.nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.num { padding: 10px 12px; border-radius: 10px; background: var(--hull-2); border: 1px solid var(--edge); }
+.num .v { font: 600 20px/1.2 var(--f-mono); margin-top: 4px; }
+.num .v small { font-size: 11px; color: var(--text-3); margin-left: 2px; }
+.num.hi .v { color: var(--ion); text-shadow: 0 0 14px rgba(59, 227, 255, .45); }
+
+.callout { border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; border: 1px solid; }
+.callout p { margin: 0; max-width: 72ch; }
+.callout.info { background: var(--ion-dim); border-color: rgba(59, 227, 255, .25); }
+.callout.warn { background: var(--warn-dim); border-color: rgba(255, 184, 77, .3); }
+.callout.bad { background: var(--bad-dim); border-color: rgba(255, 92, 108, .3); }
+.callout.ok { background: var(--ok-dim); border-color: rgba(52, 227, 160, .28); }
+.callout b { color: var(--text); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 1180px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.sect { display: flex; flex-direction: column; gap: 10px; }
+.sect-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+/* viewer */
+.viewer { padding: 12px; border-radius: 12px; background: rgba(2, 4, 9, .55); border: 1px solid var(--edge); display: flex; flex-direction: column; gap: 10px; }
+.stage { overflow: auto; max-height: 560px; border-radius: 6px; position: relative; }
+.stage-in { position: relative; margin: 0 auto; background: var(--page); box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 10px 40px rgba(0, 0, 0, .55); }
+.stage-in img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage-in img.after { clip-path: inset(0 0 0 var(--split, 50%)); }
+.splitter { position: absolute; top: 0; bottom: 0; left: var(--split, 50%); border-left: 1.5px solid var(--cut); box-shadow: 0 0 10px var(--cut); pointer-events: none; }
+.splitter::after { content: ""; position: absolute; top: 50%; left: -8px; width: 14px; height: 14px; transform: translateY(-50%) rotate(45deg); background: var(--cut); box-shadow: 0 0 12px var(--cut); }
+.tag { position: absolute; top: 8px; font: 700 10px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; padding: 4px 6px; border-radius: 4px; background: rgba(5, 8, 15, .82); color: var(--text); pointer-events: none; z-index: 2; }
+.tag.l { left: 8px; } .tag.r { right: 8px; color: var(--ion); }
+.scan { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.scan::before { content: ""; position: absolute; left: 0; right: 0; height: 90px; top: -90px;
+  background: linear-gradient(180deg, transparent, rgba(59, 227, 255, .28) 85%, rgba(59, 227, 255, .9)); animation: sweep 1.6s linear infinite; }
+@keyframes sweep { to { top: 100%; } }
+.vtools { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pager { display: flex; align-items: center; gap: 6px; font: 12px var(--f-mono); color: var(--text-2); }
+.pager .btn { padding: 3px 9px; }
+#split { width: 100%; accent-color: var(--cut); }
+
+/* bytes */
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.brow { display: grid; grid-template-columns: 50px minmax(0, 1fr) 78px; gap: 10px; align-items: center; font: 11.5px var(--f-mono); }
+.brow .t { color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; font-size: 10.5px; }
+.brow .n { text-align: right; color: var(--text-2); }
+.track { height: 14px; border-radius: 3px; background: rgba(120, 170, 255, .05); position: relative; }
+.stack { display: flex; height: 100%; border-radius: 3px; overflow: hidden; min-width: 3px; transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+.stack i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--text-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.changes { list-style: none; margin: 0; padding: 0; }
+.changes li { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; gap: 10px; padding: 9px 0; border-top: 1px solid var(--edge); align-items: baseline; }
+.changes li:first-child { border-top: 0; }
+.kind { font: 700 9.5px/1.8 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; padding: 0 6px; border-radius: 4px; justify-self: start; }
+.kind.lossless { background: var(--ok-dim); color: var(--ok); }
+.kind.image { background: var(--ion-dim); color: var(--ion); }
+.kind.kept { background: var(--hull-2); color: var(--text-2); }
+.kind.vector { background: rgba(142, 107, 255, .14); color: var(--plasma); }
+.changes .saved { font: 11.5px var(--f-mono); color: var(--text-2); white-space: nowrap; }
+.kept { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; }
+.kept li { display: flex; gap: 9px; align-items: baseline; font-size: 12.5px; color: var(--text-2); }
+.kept li i { font-style: normal; font: 700 11px var(--f-mono); width: 14px; flex: none; text-align: center; }
+.kept li.y i { color: var(--ok); text-shadow: 0 0 8px var(--ok); }
+.kept li.n i { color: var(--bad); }
+.kept li.p i { color: var(--text-3); }
+
+.x { border: 0; background: transparent; color: var(--text-3); cursor: pointer; padding: 0 2px; font-size: 15px; line-height: 1; }
+.x:hover { color: var(--bad); }
+.toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20; background: var(--hull-solid); color: var(--text);
+  border: 1px solid var(--edge-hi); box-shadow: var(--glow); padding: 10px 16px; border-radius: 10px; font-size: 13px; max-width: calc(100% - 32px); }
+.demo { font: 11px var(--f-mono); color: var(--text-3); text-align: center; padding-bottom: 22px; letter-spacing: .04em; }
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="12" fill="none" stroke="#3BE3FF" stroke-width="1.5" stroke-dasharray="56 20"/>
+        <circle cx="16" cy="16" r="6.5" fill="none" stroke="#8E6BFF" stroke-width="1.5"/>
+        <path d="M16 1v8M16 23v8M1 16h8M23 16h8" stroke="#3BE3FF" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="2.2" fill="#FF3D9A"/>
+      </svg>
+      <div><h1>Pressroom</h1><small>PDF SIZE ENGINE · LOCAL</small></div>
+    </div>
+    <div class="ctl">
+      <span class="label" id="tgtLbl">Target</span>
+      <div class="seg" role="group" aria-labelledby="tgtLbl" id="targetSeg">
+        <button type="button" data-t="1">1 MB</button>
+        <button type="button" data-t="2">2 MB</button>
+        <button type="button" data-t="5">5 MB</button>
+        <button type="button" data-t="10">10 MB</button>
+      </div>
+      <input class="field" id="customT" type="number" min="0.1" step="0.1" placeholder="MB" aria-label="Custom target in MB">
+    </div>
+    <div class="ctl">
+      <label class="label" for="floor">Never below</label>
+      <select class="field" id="floor">
+        <option value="300">300 dpi · print</option>
+        <option value="200">200 dpi · sharp</option>
+        <option value="150">150 dpi · screen</option>
+        <option value="96">96 dpi · smallest</option>
+      </select>
+    </div>
+    <button class="btn go" id="runAll" type="button">Compress all</button>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="queue">
+    <div class="drop panel hud" id="drop" tabindex="0" role="button" aria-label="Add PDFs">
+      <svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 4h11l7 7v19H9z"/><path d="M20 4v7h7"/><path d="M18 26v-9M14 21l4-4 4 4"/></svg>
+      <strong>Drop PDFs here</strong>
+      <span>or click to choose. Files never leave this computer.</span>
+      <input type="file" id="picker" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+    <ul class="files" id="files"></ul>
+    <div class="qfoot">
+      <div>Saved next to each original as <b class="mono" id="suffixEx">name (2 MB).pdf</b>. Originals are never changed.</div>
+      <div id="totals" class="mono"></div>
+    </div>
+  </aside>
+  <section class="detail panel hud" id="detail" aria-live="polite"></section>
+</main>
+<p class="demo" id="demoNote" hidden>DEMO MODE · EXAMPLE FILES AND SIMULATED RESULTS · THE DESKTOP APP RUNS THE REAL ENGINE</p>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* =========================================================== state */
+const MB = 1e6, HEADROOM = 0.975;
+const store = { get(k, d) { try { const v = localStorage.getItem("pressroom." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v) { try { localStorage.setItem("pressroom." + k, JSON.stringify(v)); } catch {} } };
+const state = { target: store.get("target", 2), floor: store.get("floor", 200), files: [], sel: null, zoom: 1, split: 50, page: null, renders: {} };
+let api = null;
+
+const fmt = b => { const m = b / MB; return m >= 100 ? m.toFixed(0) : m >= 10 ? m.toFixed(1) : m.toFixed(2); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cur = () => state.files.find(f => f.id === state.sel);
+
+/* =========================================================== real API (desktop app) */
+function realApi() {
+  const p = window.pywebview.api;
+  return {
+    pick: () => p.pick_files(),
+    compress: (id, t, fl) => p.compress(id, t, fl),
+    render: (id, which, page, w) => p.render(id, which, page, w),
+    showInFolder: path => p.show_in_folder(path),
+    saveAnyway: id => p.save_anyway(id),
+    remove: id => p.remove(id),
+  };
+}
+window.pressroom = {
+  progress(ev) { const f = state.files.find(x => x.id === ev.id); if (!f || f.phase !== "run") return; f.step = ev.step; f.progress = ev.pct; renderList(); updateRunCallout(f); },
+  added(list) { addInfos(list); },
+};
+
+/* =========================================================== demo API (browser) */
+function demoApi() {
+  const m = { img: 0, font: 0, vec: 0, meta: 0 };
+  const B = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * MB)]));
+  const models = {
+    "Lease-Agreement-signed.pdf": { pages: 14, hue: 210, title: "Harbourview Residences", before: B({ img: 8.01, font: .12, vec: .06, meta: .23 }), after: B({ font: .03, vec: .05, meta: .01 }), img300: 1.62, n: 14, thumbs: 14, subset: .09 },
+    "Portfolio-2026.pdf": { pages: 22, hue: 28, title: "Light, Glass & Stone", before: B({ img: 30.4, font: .9, vec: .2, meta: .2 }), after: B({ font: .21, vec: .08, meta: .02 }), img300: 3.4, n: 41, dupes: 6, subset: .69 },
+    "Invoice-0457.pdf": { pages: 1, hue: 150, title: "Northgate Studio Ltd", before: B({ img: .08, font: 2.21, vec: .02, meta: .33 }), after: B({ font: .02, vec: .02, meta: .01 }), img300: .08, n: 1, subset: 2.19, thumbs: 1 },
+    "Site-Plan-A1.pdf": { pages: 1, hue: 190, title: "Site Plan, Ground Floor", before: B({ img: .3, font: .1, vec: 5.6, meta: .18 }), after: B({ font: .08, vec: 4.72, meta: .02 }), img300: .1, n: 2 },
+    "Brochure-Autumn.pdf": { pages: 12, hue: 340, title: "Evenings at the Gallery", before: B({ img: 18.1, font: .5, vec: .15, meta: .15 }), after: B({ font: .27, vec: .1, meta: .03 }), img300: 1.45, n: 26, subset: .23 },
+  };
+  const LAD = [[300, 94], [300, 90], [300, 86], [300, 82], [270, 82], [240, 80], [220, 80], [200, 78], [180, 76], [165, 75], [150, 74], [130, 72], [110, 70], [96, 68]];
+  const sum = o => o.img + o.font + o.vec + o.meta;
+  const solve = (md, target, floor) => {
+    const budget = target * MB * HEADROOM, non = md.after.font + md.after.vec + md.after.meta;
+    const imgAt = (d, q) => md.img300 * MB * (d / 300) ** 2 * (0.55 + (q - 65) / 60);
+    if (non + md.before.img <= budget) return { status: "lossless", img: md.before.img };
+    const lad = LAD.filter(l => l[0] >= floor);
+    for (const [d, q] of lad) { const img = imgAt(d, q); if (non + img <= budget) return { status: d >= 300 ? "fit" : "fit-low", img, dpi: d, q }; }
+    const [d, q] = lad[lad.length - 1]; return { status: "nofit", img: imgAt(d, q), dpi: d, q };
+  };
+  return {
+    models,
+    pick: async () => { document.getElementById("picker").click(); return []; },
+    async compress(id, target, floor) {
+      const f = state.files.find(x => x.id === id), md = models[f.name] || f._model;
+      for (const [s, p] of [["Reading", 8], ["Lossless pass", 25], ["Trying 300 dpi · Q90", 50], ["Trying 240 dpi · Q80", 72], ["Checking output", 92]]) {
+        window.pressroom.progress({ id, step: s, pct: p }); await new Promise(r => setTimeout(r, 340));
+      }
+      const r = solve(md, target, floor), after = { ...md.after, img: Math.round(r.img) };
+      const ch = [];
+      if (md.subset) ch.push({ kind: "lossless", text: "Subset embedded fonts to the characters used (same glyph shapes)", saved: md.subset * MB });
+      if (md.dupes) ch.push({ kind: "lossless", text: `Merged ${md.dupes} duplicate images`, saved: 1.1 * MB });
+      if (md.thumbs) ch.push({ kind: "lossless", text: `Removed ${md.thumbs} page thumbnail${md.thumbs > 1 ? "s" : ""} and edit history (XMP)`, saved: md.before.meta - md.after.meta });
+      ch.push({ kind: "lossless", text: "Recompressed page streams and packed the file structure", saved: Math.max(0, md.before.vec - md.after.vec) });
+      if (r.dpi) ch.push({ kind: "image", text: `Re-encoded ${md.n} of ${md.n} images at up to ${r.dpi} dpi, JPEG quality ${r.q}`, saved: md.before.img - r.img });
+      else ch.push({ kind: "kept", text: `All ${md.n} image${md.n > 1 ? "s" : ""} left untouched`, saved: 0 });
+      const size = sum(after);
+      return { status: r.status, size, original_size: sum(md.before), target: target * MB, dpi: r.dpi || null, quality: r.q || null,
+        breakdown_before: md.before, breakdown_after: after, changes: ch, signed: false, vector_heavy: after.vec > size * .6, floor_dpi: floor,
+        checks: { pages: true, text: true, fonts: true, links: true, bookmarks: true, forms: true }, preview_page: 0,
+        saved_path: r.status !== "nofit" ? `C:\\Users\\you\\Documents\\${f.name.replace(/\.pdf$/i, "")} (${target} MB).pdf` : null };
+    },
+    async render(id, which, page, w) {
+      const f = state.files.find(x => x.id === id), md = models[f.name] || f._model;
+      return demoPage(md, which === "after" && f.result && f.result.dpi ? f.result.dpi : null, w);
+    },
+    showInFolder: async () => toast("Opens File Explorer with the file selected (desktop app)"),
+    saveAnyway: async id => { const f = state.files.find(x => x.id === id); return `C:\\Users\\you\\Documents\\${f.name.replace(/\.pdf$/i, "")} (${state.target} MB).pdf`; },
+    remove: async () => true,
+  };
+}
+function rng(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+const photoCache = {};
+function demoPhoto(hue) {
+  if (photoCache[hue]) return photoCache[hue];
+  const c = document.createElement("canvas"); c.width = 1400; c.height = 880; const g = c.getContext("2d"), R = rng(hue * 97 + 13);
+  const sky = g.createLinearGradient(0, 0, 0, 540); sky.addColorStop(0, `hsl(${hue} 55% 30%)`); sky.addColorStop(1, `hsl(${(hue + 30) % 360} 70% 76%)`);
+  g.fillStyle = sky; g.fillRect(0, 0, 1400, 880);
+  g.fillStyle = `hsl(${(hue + 40) % 360} 90% 88%)`; g.beginPath(); g.arc(1000, 280, 80, 0, 7); g.fill();
+  for (let L = 0; L < 4; L++) { g.fillStyle = `hsl(${(hue + 200) % 360} ${25 + L * 8}% ${46 - L * 10}%)`; g.beginPath(); g.moveTo(0, 880);
+    let y = 380 + L * 70; for (let x = 0; x <= 1400; x += 10) { y += (R() - .5) * 26; y = Math.max(260 + L * 60, Math.min(540 + L * 45, y)); g.lineTo(x, y); } g.lineTo(1400, 880); g.fill(); }
+  for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(255,255,255,${R() * .08})`; g.fillRect(R() * 1400, 540 + R() * 340, 1 + R() * 3, 1); }
+  g.strokeStyle = "rgba(0,0,0,.4)"; for (let i = 0; i < 46; i++) { const x = 90 + i * 27; g.beginPath(); g.moveTo(x, 650 - (i % 5) * 4); g.lineTo(x + 4, 545 + (i % 7) * 7); g.stroke(); }
+  return photoCache[hue] = c;
+}
+function demoPage(md, dpi, w) {
+  const W = Math.round(w), H = Math.round(W * 1.414), c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"), u = W / 100, hue = md.hue;
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#8a919e"; g.font = `600 ${2.1 * u}px Sora, sans-serif`; g.fillText("SELECTED WORK · 2024–2026".toUpperCase(), 8 * u, 10 * u);
+  g.fillStyle = "#1b1f27"; g.font = `700 ${6 * u}px Georgia, serif`; g.fillText(md.title, 8 * u, 18 * u);
+  g.font = `${2.5 * u}px Georgia, serif`; g.fillStyle = "#30353f";
+  ["Layout, type and colour carry through unchanged. Only the photograph", "below is re-encoded, at the resolution it is actually printed."].forEach((t, i) => g.fillText(t, 8 * u, 24.5 * u + i * 3.6 * u));
+  let src = demoPhoto(hue);
+  if (dpi) { const k = Math.min(1, dpi / 300) * .5, s = document.createElement("canvas"); s.width = src.width * k; s.height = src.height * k; s.getContext("2d").drawImage(src, 0, 0, s.width, s.height); src = s; }
+  g.imageSmoothingQuality = "high"; g.drawImage(src, 8 * u, 32 * u, 84 * u, 52.8 * u);
+  g.fillStyle = "#8a919e"; g.font = `${1.9 * u}px Sora, sans-serif`; g.fillText("Fig. 1  Photograph, placed at 177 × 111 mm", 8 * u, 88 * u);
+  [62, 80, 54, 91, 73, 86].forEach((v, i) => { g.fillStyle = `hsl(${hue} 45% ${40 + i * 4}%)`; g.fillRect(8 * u + i * 14 * u, 120 * u - v * .22 * u, 9 * u, v * .22 * u); });
+  g.strokeStyle = "#9aa1ad"; g.lineWidth = Math.max(1, u * .12); g.beginPath(); g.moveTo(8 * u, 120.3 * u); g.lineTo(92 * u, 120.3 * u); g.stroke();
+  g.fillStyle = "#30353f"; g.font = `${2.5 * u}px Georgia, serif`; g.fillText("Charts are vector drawings: pin-sharp at any zoom, at any target.", 8 * u, 127 * u);
+  return c.toDataURL("image/jpeg", .92);
+}
+
+/* =========================================================== files */
+let seq = 0;
+function addInfos(list) {
+  for (const info of list) {
+    if (info.error) { toast(`${info.name}: ${info.error}`); continue; }
+    if (state.files.some(f => f.path && f.path === info.path)) continue;
+    state.files.push({ ...info, phase: "ready", progress: 0 });
+    state.sel = info.id;
+  }
+  state.page = null; render();
+}
+function addDemoFiles(fileList) {
+  const pdfs = [...fileList].filter(x => /\.pdf$/i.test(x.name));
+  if (!pdfs.length) return toast("Only PDF files can be added");
+  addInfos(pdfs.map(x => {
+    const s = x.size, md = { pages: null, hue: Math.round(Math.random() * 360), title: x.name.replace(/\.pdf$/i, ""), n: 1,
+      before: { img: s * .86, font: s * .07, vec: s * .04, meta: s * .03 }, after: { font: s * .02, vec: s * .035, meta: s * .005 }, img300: s * .2 / MB, subset: s * .05 / MB };
+    return { id: "u" + (++seq), name: x.name, path: null, pages: null, size: s, breakdown: md.before, images: null, fonts: null, signed: false, _model: md };
+  }));
+  toast("Demo mode only reads the file size. The desktop app compresses for real.");
+}
+
+async function run(list) {
+  for (const f of list) { f.phase = "run"; f.progress = 0; f.step = "Queued"; f.result = null; }
+  render();
+  for (const f of list) {
+    try {
+      const r = await api.compress(f.id, state.target, state.floor);
+      if (r && r.error) throw new Error(r.error);
+      f.result = r; f.phase = "done"; f.ranWith = `${state.target}|${state.floor}`;
+      delete state.renders[f.id + "|after"];
+    } catch (e) { f.phase = "error"; f.error = e.message || String(e); }
+    render();
+  }
+}
+
+/* =========================================================== rendering */
+function chip(f) {
+  if (f.phase === "ready") return `<span class="chip idle">Ready</span>`;
+  if (f.phase === "stale") return `<span class="chip idle">Re-run</span>`;
+  if (f.phase === "run") return `<span class="chip run">${f.progress || 0}%</span>`;
+  if (f.phase === "error") return `<span class="chip bad">Error</span>`;
+  const r = f.result;
+  if (r.status === "lossless") return `<span class="chip ok">Lossless</span>`;
+  if (r.status === "fit") return `<span class="chip ok">${r.images_resampled ? "300 dpi" : "Fits"}</span>`;
+  if (r.status === "fit-low") return `<span class="chip warn">${r.dpi} dpi</span>`;
+  return `<span class="chip bad">Over</span>`;
+}
+function renderList() {
+  const ul = document.getElementById("files");
+  ul.innerHTML = state.files.map(f => {
+    const right = f.phase === "done" ? `<span>${fmt(f.size)} → <b>${fmt(f.result.size)} MB</b></span>` : `<span>${fmt(f.size)} MB${f.pages ? ` · ${f.pages} pp` : ""}</span>`;
+    return `<li><button class="file" type="button" data-id="${f.id}" aria-current="${f.id === state.sel}">
+      <span class="name">${esc(f.name)}</span>${chip(f)}
+      <span class="sizes">${right}${f.phase === "run" ? `<span>${esc(f.step || "")}</span>` : ""}</span>
+      ${f.phase === "run" ? `<span class="prog"><i style="width:${f.progress || 0}%"></i></span>` : ""}
+    </button></li>`;
+  }).join("");
+  ul.querySelectorAll(".file").forEach(b => b.onclick = () => { if (state.sel !== b.dataset.id) { state.sel = b.dataset.id; state.page = null; } render(); });
+  const done = state.files.filter(f => f.phase === "done");
+  const tb = done.reduce((a, f) => a + f.size, 0), ta = done.reduce((a, f) => a + f.result.size, 0);
+  document.getElementById("totals").innerHTML = done.length ? `${done.length}/${state.files.length} done · ${fmt(tb)} → <b>${fmt(ta)} MB</b>` : "";
+  document.getElementById("suffixEx").textContent = `name (${state.target} MB).pdf`;
+  document.getElementById("runAll").disabled = !state.files.some(f => ["ready", "stale", "error"].includes(f.phase));
+}
+
+function dial(f) {
+  const r = f.result, target = state.target * MB, size = r ? r.size : null;
+  const max = Math.max(target * 1.25, size ? size * 1.04 : 0);
+  const R = 84, C = 2 * Math.PI * R, A = C * .75;
+  const frac = size ? Math.min(1, size / max) : 0, tf = target / max;
+  const ang = (135 + 270 * tf) * Math.PI / 180, cx = 100, cy = 100;
+  const p = (rad, rr) => `${(cx + Math.cos(rad) * rr).toFixed(1)},${(cy + Math.sin(rad) * rr).toFixed(1)}`;
+  const color = !r ? "var(--text-3)" : r.status === "nofit" ? "var(--bad)" : "url(#gArc)";
+  const ticks = Array.from({ length: 28 }, (_, i) => { const a = (135 + 270 * i / 27) * Math.PI / 180; return `<line x1="${p(a, 96).split(",")[0]}" y1="${p(a, 96).split(",")[1]}" x2="${p(a, i % 3 ? 99 : 102).split(",")[0]}" y2="${p(a, i % 3 ? 99 : 102).split(",")[1]}" stroke="var(--text-3)" stroke-width="1" opacity=".6"/>`; }).join("");
+  return `<div class="dial"><svg viewBox="0 0 200 200" aria-label="Result size compared to target">
+      <defs><linearGradient id="gArc" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3BE3FF"/><stop offset="1" stop-color="#8E6BFF"/></linearGradient>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      ${ticks}
+      <circle cx="100" cy="100" r="${R}" fill="none" stroke="rgba(120,170,255,.1)" stroke-width="10" stroke-dasharray="${A} ${C}" transform="rotate(135 100 100)" stroke-linecap="round"/>
+      <circle class="arc-fill" ${frac ? "" : 'visibility="hidden"'} cx="100" cy="100" r="${R}" fill="none" stroke="${color}" stroke-width="10" stroke-dasharray="${A * frac} ${C}" transform="rotate(135 100 100)" stroke-linecap="round" filter="url(#glow)"/>
+      <line x1="${p(ang, 70).split(",")[0]}" y1="${p(ang, 70).split(",")[1]}" x2="${p(ang, 104).split(",")[0]}" y2="${p(ang, 104).split(",")[1]}" stroke="var(--cut)" stroke-width="2.5" filter="url(#glow)"/>
+      <text x="${p(ang, 116).split(",")[0]}" y="${p(ang, 116).split(",")[1]}" fill="var(--cut)" font-family="JetBrains Mono, Consolas, monospace" font-size="9.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${state.target} MB</text>
+    </svg><div class="center"><div class="big">${size ? fmt(size) : "—"}<small>${size ? "MB" : ""}</small></div>
+      <div class="sub">${!r ? "not compressed yet" : r.status === "nofit" ? "over target" : `${Math.round((1 - size / target) * 100) >= 0 ? "under" : "over"} target`}</div></div></div>`;
+}
+
+function updateRunCallout(f) { if (f.id !== state.sel) return; const c = document.getElementById("runText"); if (c) c.innerHTML = `<b>${esc(f.step || "Working")}</b> · ${f.progress || 0}%`; }
+
+function renderDetail() {
+  const el = document.getElementById("detail"), f = cur();
+  if (!f) {
+    el.innerHTML = `<div class="empty"><div class="label">No file selected</div><p>Drop PDFs on the left, or click the drop zone to choose files.</p></div>`;
+    return;
+  }
+  const r = f.phase === "done" ? f.result : null;
+  const head = `<div class="dhead"><div><h2>${esc(f.name)}</h2>
+      <div class="meta">${f.pages ? `<span>${f.pages} pages</span>` : ""}<span>${fmt(f.size)} MB original</span>${f.images != null ? `<span>${f.images} images</span>` : ""}${f.fonts != null ? `<span>${f.fonts} fonts</span>` : ""}</div></div>
+      <div class="actions">
+        ${r && r.saved_path ? `<button class="btn" type="button" data-act="open">Show in folder</button>` : ""}
+        ${r && r.status === "nofit" && !r.saved_path ? `<button class="btn" type="button" data-act="anyway">Save anyway</button>` : ""}
+        ${["ready", "stale", "error"].includes(f.phase) ? `<button class="btn go" type="button" data-act="run">Compress</button>` : ""}
+        ${f.phase !== "run" ? `<button class="btn ghost" type="button" data-act="remove" aria-label="Remove from list">Remove</button>` : ""}
+      </div></div>`;
+
+  const nums = `<div class="nums">
+      <div class="num"><div class="label">Before</div><div class="v">${fmt(f.size)}<small>MB</small></div></div>
+      <div class="num hi"><div class="label">After</div><div class="v">${r ? fmt(r.size) : "—"}<small>${r ? "MB" : ""}</small></div></div>
+      <div class="num"><div class="label">Smaller</div><div class="v">${r ? Math.max(0, Math.round((1 - r.size / f.size) * 100)) : "—"}<small>${r ? "%" : ""}</small></div></div></div>`;
+
+  let callout = "";
+  if (f.phase === "ready") callout = `<div class="callout info"><p>Lossless savings run first. Images are re-encoded only if that isn't enough, at the highest quality that fits ${state.target} MB.</p></div>`;
+  if (f.phase === "stale") callout = `<div class="callout info"><p>The target or quality floor changed. Compress again to update this result.</p></div>`;
+  if (f.phase === "run") callout = `<div class="callout info"><p id="runText"><b>${esc(f.step || "Working")}</b> · ${f.progress || 0}%</p></div>`;
+  if (f.phase === "error") callout = `<div class="callout bad"><p><b>Couldn't compress this file.</b> ${esc(f.error)}</p></div>`;
+  if (r) {
+    const saved = r.saved_path ? `<br><span class="mono" style="font-size:12px;color:var(--text-2)">Saved as ${esc(r.saved_path)}</span>` : "";
+    if (r.status === "lossless") callout = `<div class="callout ok"><p><b>No visible change.</b> Removing unused and duplicated data was enough, so every image is untouched.${saved}</p></div>`;
+    if (r.status === "fit") callout = r.images_resampled === 0
+      ? `<div class="callout ok"><p><b>Fits with no visible change.</b> Every image keeps its original resolution.${saved}</p></div>`
+      : `<div class="callout ok"><p><b>Fits at full print quality.</b> Photos are kept at 300 dpi for their printed size, JPEG quality ${r.quality}.${saved}</p></div>`;
+    if (r.status === "fit-low") callout = `<div class="callout warn"><p><b>Fits at ${r.dpi} dpi.</b> Sharp on screen and at normal zoom. To keep full 300 dpi print quality, use a larger target.${saved}</p></div>`;
+    if (r.status === "nofit") {
+      const need = Math.ceil(r.size / HEADROOM / MB * 10) / 10;
+      callout = `<div class="callout bad"><p><b>Can't reach ${state.target} MB above ${state.floor} dpi.</b> ${r.vector_heavy
+        ? `Most of this file is drawn shapes${/figma|sketch|illustrator|canva/i.test(r.producer || "") ? ` (${esc(r.producer.split(/[ ,(]/)[0])} draws text and icons as outlines)` : ""}, already trimmed as far as it can go without a visible change. Going smaller would mean turning pages into images, which blurs text when zoomed.`
+        : `The smallest version at ${state.floor} dpi is ${fmt(r.size)} MB.`}${saved}</p>
+        <div class="actions"><button class="btn" type="button" data-act="bump" data-v="${Math.max(need, state.target + .1)}">Use a ${Math.max(need, state.target + .1)} MB target</button>
+        ${state.floor > 96 && !r.vector_heavy ? `<button class="btn" type="button" data-act="lower">Allow ${state.floor > 150 ? 150 : 96} dpi</button>` : ""}</div></div>`;
+    }
+    if (r.signed) callout += `<div class="callout warn"><p><b>This PDF is digitally signed.</b> Any change to the file, including compression, makes the signature show as invalid. Send the original if the signature matters.</p></div>`;
+  }
+
+  const segs = [["img", "Images", "var(--seg-img)"], ["font", "Fonts", "var(--seg-font)"], ["vec", "Text & vectors", "var(--seg-vec)"], ["meta", "Metadata & extras", "var(--seg-meta)"]];
+  const before = r ? r.breakdown_before : f.breakdown, after = r ? r.breakdown_after : null;
+  const tot = o => o.img + o.font + o.vec + o.meta;
+  const stack = (o, w) => `<div class="track"><div class="stack" style="width:${w}%">${segs.map(([k, , c]) => `<i style="flex:${o[k]};background:${c};box-shadow:0 0 10px ${c}"></i>`).join("")}</div></div>`;
+  const bytes = `<div class="sect"><span class="label">Where the bytes are</span>
+      <div class="bars"><div class="brow"><span class="t">Before</span>${stack(before, 100)}<span class="n">${fmt(tot(before))} MB</span></div>
+      <div class="brow"><span class="t">After</span>${after ? stack(after, Math.max(.6, tot(after) / tot(before) * 100)) : `<div class="track"></div>`}<span class="n">${after ? fmt(tot(after)) + " MB" : "—"}</span></div></div>
+      <div class="legend">${segs.map(([k, l, c]) => `<span><i style="background:${c}"></i>${l} <span class="mono">${fmt(before[k])}</span></span>`).join("")}</div></div>`;
+
+  const changes = r ? `<div class="sect"><span class="label">What changed</span><ul class="changes">${r.changes.map(c =>
+      `<li><span class="kind ${c.kind}">${c.kind}</span><span>${esc(c.text)}</span><span class="saved">${c.saved > 500 ? "−" + fmt(c.saved) + " MB" : ""}</span></li>`).join("") || `<li><span class="kind kept">kept</span><span>Nothing needed changing.</span><span></span></li>`}</ul></div>` : "";
+
+  const ck = r ? r.checks : null;
+  const keptItem = (k, label) => { const s = !ck ? "p" : ck[k] === false ? "n" : "y"; return `<li class="${s}"><i>${s === "y" ? "✓" : s === "n" ? "✕" : "·"}</i>${label}</li>`; };
+  const kept = `<div class="sect"><div class="sect-h"><span class="label">${r ? "Verified against the original" : "Will be verified"}</span></div><ul class="kept">
+      ${keptItem("text", "Text identical and searchable")}${keptItem("fonts", "Same fonts on every page")}${keptItem("colour", "Colour spaces and ICC profiles")}
+      ${keptItem("pages", "Page sizes and rotation")}${keptItem("links", "Links")}${keptItem("bookmarks", "Bookmarks")}${keptItem("forms", "Form fields")}</ul></div>`;
+
+  const pages = f.pages || 1, pg = state.page ?? (r ? r.preview_page : 0);
+  const viewer = `<div class="sect"><div class="viewer">
+      <div class="vtools"><span class="label">${r ? "Compare · drag the divider" : "Original"}</span>
+        <div class="pager">${pages > 1 ? `<button class="btn" type="button" data-pg="-1" aria-label="Previous page">‹</button><span>p. ${pg + 1}/${pages}</span><button class="btn" type="button" data-pg="1" aria-label="Next page">›</button>` : ""}
+        <div class="seg" role="group" aria-label="Zoom" id="zoomSeg">${[1, 2, 4].map(z => `<button type="button" data-z="${z}" aria-pressed="${z === state.zoom}">${z * 100}%</button>`).join("")}</div></div></div>
+      <div class="stage" id="stage"><div class="stage-in" id="stageIn">
+        <img class="before" id="imgBefore" alt="Original page ${pg + 1}">
+        ${r ? `<img class="after" id="imgAfter" alt="Compressed page ${pg + 1}"><div class="splitter"></div><span class="tag l">Original</span><span class="tag r">${r.dpi ? r.dpi + " dpi · Q" + r.quality : "Lossless"}</span>` : ""}
+        ${f.phase === "run" ? `<div class="scan"></div>` : ""}
+      </div></div>
+      ${r ? `<input type="range" id="split" min="0" max="100" value="${state.split}" aria-label="Comparison divider position">` : ""}
+    </div></div>`;
+
+  el.innerHTML = head + `<div class="readout">${dial(f)}<div class="stats">${nums}${callout}</div></div>`
+    + `<div class="cols"><div class="col">${viewer}</div><div class="col">${bytes}${changes}${kept}</div></div>`;
+
+  el.querySelectorAll("[data-act]").forEach(b => b.onclick = () => act(b.dataset.act, f, b.dataset.v));
+  el.querySelectorAll("#zoomSeg button").forEach(b => b.onclick = () => { state.zoom = +b.dataset.z; renderDetail(); });
+  el.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => { state.page = Math.max(0, Math.min(pages - 1, pg + +b.dataset.pg)); renderDetail(); });
+  const split = el.querySelector("#split");
+  if (split) split.oninput = () => { state.split = +split.value; el.querySelector("#stageIn").style.setProperty("--split", split.value + "%"); };
+  layoutStage(f, pg, r);
+}
+
+async function layoutStage(f, pg, r) {
+  const stage = document.getElementById("stage"), inner = document.getElementById("stageIn");
+  if (!stage) return;
+  const w = Math.min(stage.clientWidth - 2, 460) * state.zoom;
+  inner.style.width = w + "px"; inner.style.height = w * 1.414 + "px"; inner.style.setProperty("--split", state.split + "%");
+  const px = Math.min(2600, Math.round(w * (window.devicePixelRatio || 1)));
+  const load = async (which, imgId) => {
+    const key = `${f.id}|${which}|${pg}|${px}`;
+    try {
+      const url = state.renders[key] || (state.renders[key] = await api.render(f.id, which, pg, px));
+      const img = document.getElementById(imgId);
+      if (img && cur() === f) { img.src = url; img.onload = () => { if (which === "before") inner.style.height = img.naturalHeight / img.naturalWidth * w + "px"; }; }
+    } catch (e) { /* preview is optional */ }
+  };
+  await load("before", "imgBefore");
+  if (r) await load("after", "imgAfter");
+}
+
+/* =========================================================== actions */
+async function act(a, f, v) {
+  if (a === "run") return run([f]);
+  if (a === "open") return api.showInFolder(f.result.saved_path);
+  if (a === "anyway") { const p = await api.saveAnyway(f.id); if (p) { f.result.saved_path = p; toast("Saved " + p); render(); } return; }
+  if (a === "bump") { setTarget(+v); return run([f]); }
+  if (a === "lower") { setFloor(state.floor > 150 ? 150 : 96); return run([f]); }
+  if (a === "remove") { await api.remove(f.id); state.files = state.files.filter(x => x !== f); state.sel = state.files.length ? state.files[state.files.length - 1].id : null; state.page = null; render(); }
+}
+function markStale() { state.files.forEach(f => { if (f.phase === "done" && f.ranWith !== `${state.target}|${state.floor}`) f.phase = "stale"; else if (f.phase === "stale" && f.ranWith === `${state.target}|${state.floor}`) f.phase = "done"; }); render(); }
+function setTarget(t) {
+  state.target = t; store.set("target", t);
+  document.querySelectorAll("#targetSeg button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.t === t)));
+  document.getElementById("customT").value = [1, 2, 5, 10].includes(t) ? "" : t;
+  markStale();
+}
+function setFloor(v) { state.floor = v; store.set("floor", v); document.getElementById("floor").value = String(v); markStale(); }
+
+document.querySelectorAll("#targetSeg button").forEach(b => b.onclick = () => setTarget(+b.dataset.t));
+document.getElementById("customT").onchange = e => { const v = parseFloat(e.target.value); if (v > 0) setTarget(Math.round(v * 10) / 10); };
+document.getElementById("floor").onchange = e => setFloor(+e.target.value);
+document.getElementById("runAll").onclick = () => run(state.files.filter(f => ["ready", "stale", "error"].includes(f.phase)));
+
+const drop = document.getElementById("drop"), picker = document.getElementById("picker");
+async function choose() { if (window.pywebview) addInfos(await api.pick()); else picker.click(); }
+drop.onclick = choose;
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } };
+document.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+document.addEventListener("dragleave", e => { if (!e.relatedTarget) drop.classList.remove("over"); });
+document.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (!window.pywebview) addDemoFiles(e.dataTransfer.files); });
+picker.onchange = () => { addDemoFiles(picker.files); picker.value = ""; };
+
+let tt; function toast(t) { const el = document.getElementById("toast"); el.textContent = t; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 4200); }
+function render() { renderList(); renderDetail(); }
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderDetail, 160); });
+
+/* =========================================================== boot */
+function boot(real) {
+  api = real ? realApi() : demoApi();
+  document.querySelectorAll("#targetSeg button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.t === state.target)));
+  if (![1, 2, 5, 10].includes(state.target)) document.getElementById("customT").value = state.target;
+  document.getElementById("floor").value = String(state.floor);
+  if (!real) {
+    document.getElementById("demoNote").hidden = false;
+    const md = api.models;
+    state.files = Object.entries(md).map(([name, m], i) => ({ id: "d" + i, name, path: null, pages: m.pages, size: Object.values(m.before).reduce((a, b) => a + b, 0),
+      breakdown: m.before, images: m.n, fonts: 3, signed: false, phase: "ready", progress: 0 }));
+    let pick = "d1";
+    try { const s = new URLSearchParams(location.search).get("demo"); if (s && /^[0-4]$/.test(s)) pick = "d" + s; } catch {}
+    state.sel = pick; render();
+    run(state.files.slice(0, 4));
+  } else render();
+}
+let booted = false;
+window.addEventListener("pywebviewready", () => { if (!booted) { booted = true; boot(true); } });
+setTimeout(() => { if (!booted) { booted = true; boot(!!(window.pywebview && window.pywebview.api)); } }, 400);
+</script>
